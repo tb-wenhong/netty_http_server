@@ -17,11 +17,18 @@ import java.util.Map;
 public class HttpServer<T extends NettyHttpHandler> {
 
     private int port;
+    private int threads;
 
     private Map<String, T> urlMapping = new HashMap<String, T>();
 
+    public HttpServer(int port, int threads) {
+        this.port = port;
+        this.threads = threads;
+    }
+
     public HttpServer(int port) {
         this.port = port;
+        this.threads = 4;
     }
 
     public int getPort() {
@@ -38,11 +45,12 @@ public class HttpServer<T extends NettyHttpHandler> {
     }
 
     public void start() throws Exception {
-        EventLoopGroup bossGroup = new NioEventLoopGroup();
-        EventLoopGroup workerGroup = new NioEventLoopGroup();
+        EventLoopGroup bossGroup = new NioEventLoopGroup(threads);
+        EventLoopGroup workerGroup = new NioEventLoopGroup(threads);
         try {
             ServerBootstrap b = new ServerBootstrap();
-            b.option(ChannelOption.SO_BACKLOG, 1024);
+//            b.option(ChannelOption.SO_BACKLOG, 1024);
+            b.option(ChannelOption.SO_TIMEOUT, 500);
             b.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
                     .childHandler(new HttpAggregatorInitializer(urlMapping));
@@ -54,6 +62,14 @@ public class HttpServer<T extends NettyHttpHandler> {
             bossGroup.shutdownGracefully();
             workerGroup.shutdownGracefully();
         }
+    }
+
+    public int getThreads() {
+        return threads;
+    }
+
+    public void setThreads(int threads) {
+        this.threads = threads;
     }
 
 //    public static void main(String[] args) throws Exception {

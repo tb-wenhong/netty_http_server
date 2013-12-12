@@ -2,6 +2,12 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <parent>
+        <groupId>com.sohu.suc</groupId>
+        <artifactId>suc-root-pom</artifactId>
+        <version>2.0-SNAPSHOT</version>
+    </parent>
+
     <groupId>com.sohu.saccount</groupId>
     <artifactId>http-netty-server</artifactId>
     <version>1.0-SNAPSHOT</version>
@@ -16,9 +22,9 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.netty</groupId>
+            <groupId>com.sohu.saccount</groupId>
             <artifactId>netty-all</artifactId>
-            <version>4.0.14.Final-SNAPSHOT</version>
+            <version>4.0.14.Final</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -46,10 +52,20 @@
             <version>2.5</version>
         </dependency>
         <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>jsp-api</artifactId>
+            <version>2.0</version>
+        </dependency>
+        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.8.1</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>13.0.1</version>
         </dependency>
     </dependencies>
 </project>

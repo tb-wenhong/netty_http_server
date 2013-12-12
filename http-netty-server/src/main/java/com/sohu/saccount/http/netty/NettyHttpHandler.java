@@ -17,6 +17,6 @@ public interface NettyHttpHandler {
      * @param parameters
      * @return
      */
-    public String handle(Map<String, String> parameters);
+    public String handle(Map<String, String> parameters, Map<String, String> rest_parameters);
 
 }

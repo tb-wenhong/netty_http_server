@@ -12,6 +12,7 @@ import io.netty.handler.codec.http.multipart.MixedAttribute;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
+import java.net.SocketAddress;
 import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.List;
@@ -61,56 +62,110 @@ public class HttpHandler<T extends NettyHttpHandler> extends ChannelInboundHandl
             String mappingUri = req.getUri();
             NettyHttpHandler nettyHttpHandler = null;
             Map<String, String> requestParameters = new HashMap<String, String>();
-            // 首先获取用户自定义编码，然后再读取参数
-            QueryStringDecoder decoderQuery = new QueryStringDecoder(req.getUri());
-            if (decoderQuery.parameters() != null && decoderQuery.parameters().containsKey("_input_encode")) {
-                if (Charset.isSupported(decoderQuery.parameters().get("_input_encode").get(0))) {
-                    user_defined_input_charset = Charset.forName(decoderQuery.parameters().get("_input_encode").get(0));
-                    logger.info("user defined charset is " + user_defined_input_charset);
-                } else {
-                    logger.warn("unsupported user define charset " + user_defined_input_charset);
+            Map<String, String> requestParameters_rest = new HashMap<String, String>();
+            try {
+                // 首先获取用户自定义编码，然后再读取参数
+                QueryStringDecoder decoderQuery = new QueryStringDecoder(req.getUri());
+                if (decoderQuery.parameters() != null && (decoderQuery.parameters().containsKey("_input_encode") || decoderQuery.parameters().containsKey("__input_encode"))) {
+                    String ud_input_encode = "";
+                    if (decoderQuery.parameters().get("_input_encode") != null && decoderQuery.parameters().get("_input_encode").size() > 0) {
+                        ud_input_encode = decoderQuery.parameters().get("_input_encode").get(0);
+                    } else if (decoderQuery.parameters().get("__input_encode") != null && decoderQuery.parameters().get("__input_encode").size() > 0) {
+                        ud_input_encode = decoderQuery.parameters().get("__input_encode").get(0);
+                    }
+                    if (Charset.isSupported(ud_input_encode)) {
+                        user_defined_input_charset = Charset.forName(ud_input_encode);
+                        logger.info("user defined charset is " + user_defined_input_charset);
+                    } else {
+                        logger.warn("unsupported user define charset " + user_defined_input_charset);
+                    }
                 }
-            }
 
-            if (decoderQuery.parameters() != null && decoderQuery.parameters().containsKey("_input_encode")) {
-                if (Charset.isSupported(decoderQuery.parameters().get("_output_encode").get(0))) {
-                    user_defined_output_charset = Charset.forName(decoderQuery.parameters().get("_output_encode").get(0));
-                    logger.info("user defined charset is " + user_defined_output_charset);
-                } else {
-                    logger.warn("unsupported user define charset " + user_defined_output_charset);
+                if (decoderQuery.parameters() != null && (decoderQuery.parameters().containsKey("_output_encode") || decoderQuery.parameters().containsKey("__output_encode"))) {
+                    String ud_output_encode = "";
+                    if (decoderQuery.parameters().get("_output_encode") != null && decoderQuery.parameters().get("_output_encode").size() > 0) {
+                        ud_output_encode = decoderQuery.parameters().get("_output_encode").get(0);
+                    } else if (decoderQuery.parameters().get("__output_encode") != null && decoderQuery.parameters().get("__output_encode").size() > 0) {
+                        ud_output_encode = decoderQuery.parameters().get("__output_encode").get(0);
+                    }
+                    if (Charset.isSupported(ud_output_encode)) {
+                        user_defined_output_charset = Charset.forName(ud_output_encode);
+                        logger.info("user defined charset is " + user_defined_output_charset);
+                    } else {
+                        logger.warn("unsupported user define charset " + user_defined_output_charset);
+                    }
                 }
-            }
 
-            if (req.getMethod().equals(HttpMethod.GET)) {
-                nettyHttpHandler = urlMapping.get(mappingUri);
-                requestParameters = getRequestParameters(req, user_defined_input_charset);
-                if (nettyHttpHandler == null) {
+                if (req.getMethod().equals(HttpMethod.GET)) {
+                    // 无参数的get查询模式
+                    nettyHttpHandler = urlMapping.get(mappingUri);
+                    requestParameters = getRequestParameters(req, user_defined_input_charset);
+                    // 有参数的get查询模式
+                    if (nettyHttpHandler == null) {
+                        if (mappingUri.contains("?")) {
+                            mappingUri = mappingUri.substring(0, mappingUri.indexOf("?"));
+                            nettyHttpHandler = urlMapping.get(mappingUri);
+                            requestParameters = getRequestParameters(req, user_defined_input_charset);
+                        } else {
+                            //restful url的有参数get查询模式
+                            // handle restful url
+                            String realURL = RestfulRegistryCenter.getRealUrl(req.getUri(), requestParameters_rest, "get", user_defined_input_charset);
+                            if (realURL != null) {
+                                nettyHttpHandler = urlMapping.get(realURL);
+                            }
+                        }
+                    }
+                } else {
+                    //post 混合提交模式
                     if (mappingUri.contains("?")) {
                         mappingUri = mappingUri.substring(0, mappingUri.indexOf("?"));
-                        nettyHttpHandler = urlMapping.get(mappingUri);
-                        requestParameters = getRequestParameters(req, user_defined_input_charset);
-                    } else {
-                        // handle restful url
-                        String realURL = RestfulRegistryCenter.getRealUrl(req.getUri(), requestParameters);
+                    }
+                    nettyHttpHandler = urlMapping.get(mappingUri);
+                    requestParameters = getRequestParameters(req, user_defined_input_charset);
+                    if (nettyHttpHandler == null) {
+                        // 如果post提交方式还没有获得handler
+                        String realURL = RestfulRegistryCenter.getRealUrl(mappingUri, requestParameters_rest, "post", user_defined_input_charset);
                         if (realURL != null) {
                             nettyHttpHandler = urlMapping.get(realURL);
                         }
                     }
                 }
-            } else {
-                //post 混合提交模式
-                if (mappingUri.contains("?")) {
-                    mappingUri = mappingUri.substring(0, mappingUri.indexOf("?"));
+                //获得ip
+                String ip = req.headers().get("x-forwarded-for");
+                if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+                    ip = req.headers().get("Proxy-Client-IP");
                 }
-                nettyHttpHandler = urlMapping.get(mappingUri);
-                requestParameters = getRequestParameters(req, user_defined_input_charset);
-            }
+                if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+                    ip = req.headers().get("WL-Proxy-Client-IP");
+                }
+                if (ip == null || ip.length() == 0 || "unknown".equalsIgnoreCase(ip)) {
+                    SocketAddress remoteAddress = ctx.channel().remoteAddress();
+                    String ip___ = remoteAddress.toString();  // /127.0.0.1:64855
+                    if (ip___.length() > 1 && ip___.contains(":")) {
+                        ip = ip___.substring(1, ip___.indexOf(":"));
+                    } else {
+                        ip = "unknown";
+                    }
+                }
+                if (ip.indexOf(",") > 0) {
+                    ip = ip.substring(0, ip.indexOf(","));
+                }
+                requestParameters.put("remoteIp", ip);
+                //加入ip完毕
 
-
-            if (nettyHttpHandler == null) {
-                result = "no mapping uri handler";
-            } else {
-                result = nettyHttpHandler.handle(requestParameters);
+                if (nettyHttpHandler == null) {
+                    result = "no mapping uri handler";
+                } else {
+                    try {
+                        result = nettyHttpHandler.handle(requestParameters, requestParameters_rest);
+                    } catch (Exception e) {
+                        logger.error("Handler error" + nettyHttpHandler.getClass().toString() + e.getMessage(), e);
+                        result = "{\"code\":-999,\"msg\":\"服务器内部错误\"}";
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("channelRead error " + e.getMessage(), e);
+                result = "{\"code\":-999,\"msg\":\"服务器内部错误\"}";
             }
 
             FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK,
@@ -140,10 +195,10 @@ public class HttpHandler<T extends NettyHttpHandler> extends ChannelInboundHandl
             for (Map.Entry<String, List<String>> entry : decoderQuery.parameters().entrySet()) {
                 parameters.put(entry.getKey(), entry.getValue().get(0));
             }
+            parameters.put("httpMethod", "get");
             return parameters;
         } else if (httpRequest.getMethod().equals(HttpMethod.POST)) {
             // 有可能是混合提交， 如 post地址为  http://www.foobar.com?a=b  post参数为c=d
-
             QueryStringDecoder decoderQuery = new QueryStringDecoder(httpRequest.getUri(), user_define_charset);
             for (Map.Entry<String, List<String>> entry : decoderQuery.parameters().entrySet()) {
                 parameters.put(entry.getKey(), entry.getValue().get(0));
@@ -156,6 +211,7 @@ public class HttpHandler<T extends NettyHttpHandler> extends ChannelInboundHandl
                     parameters.put(interfaceHttpData.getName(), attribute.getValue());
                 }
             }
+            parameters.put("httpMethod", "post");
             return parameters;
         } else {
             return parameters;
