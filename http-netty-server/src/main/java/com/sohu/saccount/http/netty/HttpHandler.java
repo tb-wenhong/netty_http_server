@@ -41,7 +41,7 @@ public class HttpHandler<T extends NettyHttpHandler> extends ChannelInboundHandl
     private static final Logger logger = Logger.getLogger(HttpHandler.class);
 
     /**
-     * 默认使用GBK作为传输编码格式
+     * 默认使用UTF-8作为传输编码格式
      */
     private static final Charset DEFAULT_ENCODE = Charset.forName("UTF-8");
 
