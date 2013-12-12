@@ -16,7 +16,8 @@ public class FoobarHandler implements NettyHttpHandler {
     public static final String URLMAPPING = "/foobar";
 
     @Override
-    public String handle(Map<String, String> stringStringMap) {
+    public String handle(Map<String, String> stringStringMap, Map<String, String> rest_parameters) {
+        stringStringMap.putAll(rest_parameters);
         System.out.println("param is " + stringStringMap.toString());
         return "FOOBAR" + stringStringMap.toString();
     }
