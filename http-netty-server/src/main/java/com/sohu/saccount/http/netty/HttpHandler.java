@@ -169,7 +169,7 @@ public class HttpHandler<T extends NettyHttpHandler> extends ChannelInboundHandl
             }
 
             FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK,
-                    Unpooled.wrappedBuffer(result.getBytes()));
+                    Unpooled.wrappedBuffer(result.getBytes(user_defined_output_charset)));
             response.headers().set(CONTENT_TYPE, "text/plain;charset=" + user_defined_output_charset);
             response.headers().set(CONTENT_LENGTH, response.content().readableBytes());
 
