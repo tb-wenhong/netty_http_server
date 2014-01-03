@@ -167,13 +167,18 @@ public class HttpHandler<T extends NettyHttpHandler> extends ChannelInboundHandl
                 logger.error("channelRead error " + e.getMessage(), e);
                 result = "{\"code\":-999,\"msg\":\"服务器内部错误\"}";
             }
-
+            boolean keepAlive = isKeepAlive(req);
             FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK,
                     Unpooled.wrappedBuffer(result.getBytes(user_defined_output_charset)));
             response.headers().set(CONTENT_TYPE, "text/plain;charset=" + user_defined_output_charset);
             response.headers().set(CONTENT_LENGTH, response.content().readableBytes());
 
-            ctx.write(response).addListener(ChannelFutureListener.CLOSE);
+            if (!keepAlive) {
+                ctx.write(response).addListener(ChannelFutureListener.CLOSE);
+            } else {
+                response.headers().set(CONNECTION, HttpHeaders.Values.KEEP_ALIVE);
+                ctx.write(response);
+            }
 
         }
     }
