@@ -31,7 +31,9 @@ public class HttpAggregatorInitializer<T extends NettyHttpHandler> extends Chann
         p.addLast("aggegator", new HttpObjectAggregator(512 * 1024));
         // Add HttpObjectAggregator to the ChannelPipeline, using a max message size of 512kb.
         // After the message is getting bigger a TooLongFrameException is thrown.
-
+        p.addLast("idleStateHandler", new IdleStateHandler(1, 1, 1, TimeUnit.SECONDS));
+        p.addLast("readTimeoutHandler", new ReadTimeoutHandler(1, TimeUnit.SECONDS));
+        p.addLast("writeTimeoutHandler", new WriteTimeoutHandler(1, TimeUnit.SECONDS));
         p.addLast("handler", new HttpHandler(urlMapping));
     }
 
