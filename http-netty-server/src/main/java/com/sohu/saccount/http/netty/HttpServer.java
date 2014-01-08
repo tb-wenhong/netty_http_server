@@ -49,8 +49,10 @@ public class HttpServer<T extends NettyHttpHandler> {
         EventLoopGroup workerGroup = new NioEventLoopGroup(threads);
         try {
             ServerBootstrap b = new ServerBootstrap();
-//            b.option(ChannelOption.SO_BACKLOG, 1024);
-            b.option(ChannelOption.SO_TIMEOUT, 500);
+            b.option(ChannelOption.SO_BACKLOG, 1024);
+            b.option(ChannelOption.SO_TIMEOUT, 1800);
+            b.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 1800);
+            b.option(ChannelOption.TCP_NODELAY, true);
             b.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
                     .childHandler(new HttpAggregatorInitializer(urlMapping));
